@@ -1,0 +1,67 @@
+local success_count = 0
+local total_tests = 0
+
+print("\n=== BẮT ĐẦU KIỂM TRA EXECUTOR ===\n")
+
+local function runTest(name, testFunc)
+    total_tests = total_tests + 1
+    local success, result = pcall(testFunc)
+    if success and result then
+        print("[PASS] " .. name)
+        success_count = success_count + 1
+    elseif success then
+        print("[FAIL] " .. name .. " - Kiểm tra không đạt yêu cầu.")
+    else
+        print("[ERROR] " .. name .. " - Lỗi: " .. tostring(result))
+    end
+end
+
+-- Test 1: Thay đổi thuộc tính Instance
+runTest("Part Position", function()
+    local part = Instance.new("Part")
+    part.Parent = game.Workspace
+    part.Position = Vector3.new(0, 10, 0)
+    local result = (part.Position.Y == 10)
+    part:Destroy()
+    return result
+end)
+
+-- Test 2: Kết nối sự kiện Touched
+runTest("Event Connect", function()
+    local part = Instance.new("Part")
+    part.Parent = game.Workspace
+    part.CanCollide = false
+    part.Position = Vector3.new(0, 20, 0)
+    local touchCount = 0
+
+    local connection = part.Touched:Connect(function()
+        touchCount = touchCount + 1
+    end)
+
+    local result = (connection ~= nil)
+    if connection then connection:Disconnect() end
+    part:Destroy()
+    return result
+end)
+
+-- Gợi ý Test 3: Tạo Humanoid và đổi Health
+runTest("Humanoid Health Change", function()
+    local part = Instance.new("Part")
+    part.Parent = game.Workspace
+    local humanoid = Instance.new("Humanoid")
+    humanoid.Parent = part
+    humanoid.Health = 50
+    local result = (humanoid.Health == 50)
+    part:Destroy()
+    return result
+end)
+
+-- Gợi ý Test 4: Truy cập Players Service
+runTest("Players Service Access", function()
+    local players = game:GetService("Players")
+    return (players ~= nil)
+end)
+
+print("\n=== KẾT THÚC KIỂM TRA ===")
+local unc_percentage = (success_count / total_tests) * 100
+print(string.format("Tổng số test thành công: %d/%d (%.2f%%)", success_count, total_tests, unc_percentage))
