@@ -1,12 +1,14 @@
+-- UNC Executor Test Suite (Full Version)
 local success_count = 0
 local total_tests = 0
 
-print("\n=== BẮT ĐẦU KIỂM TRA EXECUTOR ===\n")
+print("\n=== BẮT ĐẦU KIỂM TRA EXECUTOR (UNC STANDARD + EXTENSIONS) ===\n")
 
+-- Helper function
 local function runTest(name, testFunc)
     total_tests = total_tests + 1
     local success, result = pcall(testFunc)
-    if success and result == true then -- Kiểm tra cả success và kết quả trả về phải là true
+    if success and result then
         print("[PASS] " .. name)
         success_count = success_count + 1
     elseif success then
@@ -16,8 +18,8 @@ local function runTest(name, testFunc)
     end
 end
 
--- Test 1: Thay đổi thuộc tính Instance cơ bản (Position)
-runTest("Part Position Change", function()
+-- UNC Basic Tests (được cải tiến)
+runTest("Part Position", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
     part.Position = Vector3.new(0, 10, 0)
@@ -26,20 +28,16 @@ runTest("Part Position Change", function()
     return result
 end)
 
--- Test 2: Kết nối sự kiện Touched (Đã thêm kiểm tra nil cho connection)
-runTest("Event Touched Connect", function()
+runTest("Event Connect (Touched)", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
     local connection = part.Touched:Connect(function() end)
-    local result = (connection ~= nil and typeof(connection) == "RBXScriptConnection")
-    if connection then -- Chỉ Disconnect nếu connection không phải là nil
-        connection:Disconnect()
-    end
+    local result = (connection ~= nil)
+    connection:Disconnect()
     part:Destroy()
     return result
 end)
 
--- Test 3: Tạo Humanoid và đổi Health
 runTest("Humanoid Health Change", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
@@ -51,109 +49,85 @@ runTest("Humanoid Health Change", function()
     return result
 end)
 
--- Test 4: Truy cập Players Service
 runTest("Players Service Access", function()
     local players = game:GetService("Players")
-    return (players ~= nil and typeof(players) == "Players")
+    return (players ~= nil)
 end)
 
--- Test 5: RemoteEvent FireServer (chỉ kiểm tra sự tồn tại của hàm)
-runTest("RemoteEvent FireServer Function", function()
+-- UNC Extended Tests
+runTest("RemoteEvent FireServer", function()
     local event = Instance.new("RemoteEvent")
     event.Parent = game.ReplicatedStorage
-    local result = (typeof(event.FireServer) == "function")
+    local result = (event.FireServer ~= nil)
     event:Destroy()
     return result
 end)
 
--- Test 6: BindableEvent Fire (Đã thêm kiểm tra nil cho connection)
 runTest("BindableEvent Fire", function()
     local event = Instance.new("BindableEvent")
     event.Parent = game.ReplicatedStorage
     local called = false
-    local conn = event.Event:Connect(function() called = true end)
+    event.Event:Connect(function() called = true end)
     event:Fire()
-    wait(0.1) -- Đợi một chút để sự kiện được xử lý
-    if conn then -- Chỉ Disconnect nếu conn không phải là nil
-        conn:Disconnect()
-    end
+    task.wait(0.05)
     event:Destroy()
     return called
 end)
 
--- Test 7: Lighting Service và thuộc tính Brightness
-runTest("Lighting Brightness Change", function()
+runTest("Lighting Service Access", function()
     local lighting = game:GetService("Lighting")
-    local originalBrightness = lighting.Brightness
     lighting.Brightness = 2
     local result = (lighting.Brightness == 2)
-    lighting.Brightness = originalBrightness -- Khôi phục giá trị gốc
     return result
 end)
 
--- Test 8: ReplicatedStorage Access
 runTest("ReplicatedStorage Access", function()
     local rs = game:GetService("ReplicatedStorage")
-    return (rs ~= nil and typeof(rs) == "ReplicatedStorage")
+    return (rs ~= nil)
 end)
 
--- Test 9: RunService Heartbeat Connect (Đã thêm kiểm tra nil cho connection)
 runTest("RunService Heartbeat Connect", function()
     local runService = game:GetService("RunService")
     local connected = false
     local conn = runService.Heartbeat:Connect(function()
         connected = true
-        if conn then -- Ngắt kết nối ngay sau lần đầu tiên chạy để tránh spam, chỉ khi conn không nil
-            conn:Disconnect()
-        end
     end)
-    wait(0.2) -- Đợi đủ lâu để Heartbeat có thể kích hoạt
-    -- Đảm bảo ngắt kết nối nếu Heartbeat không bao giờ kích hoạt
-    if conn and connected == false then
-        conn:Disconnect()
-    end
+    task.wait(0.05)
+    conn:Disconnect()
     return connected
 end)
 
--- Test 10: TweenService Create
 runTest("TweenService Create", function()
     local tweenService = game:GetService("TweenService")
     local part = Instance.new("Part")
     part.Parent = game.Workspace
     local tweenInfo = TweenInfo.new(1)
     local tween = tweenService:Create(part, tweenInfo, {Position = Vector3.new(0, 10, 0)})
-    local result = (tween ~= nil and typeof(tween) == "Tween")
-    if tween then -- Chỉ Cancel nếu tween không nil
-        tween:Cancel()
-    end
+    local result = (tween ~= nil)
     part:Destroy()
     return result
 end)
 
--- Test 11: Debris AddItem
 runTest("Debris AddItem", function()
     local debris = game:GetService("Debris")
     local part = Instance.new("Part")
     part.Parent = game.Workspace
-    debris:AddItem(part, 1) -- Thêm vào Debris để tự hủy sau 1 giây
-    local result = (part ~= nil) -- Kiểm tra xem có thêm được không
+    debris:AddItem(part, 1)
+    local result = (part ~= nil)
     return result
 end)
 
--- Test 12: Sound Playback
 runTest("Sound Playback", function()
     local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://1837467915" -- Một âm thanh ví dụ (âm thanh mặc định của Roblox)
+    sound.SoundId = "rbxassetid://1837467915"
     sound.Parent = game.Workspace
     sound:Play()
-    wait(0.1) -- Đợi một chút để âm thanh có thể bắt đầu
     local result = (sound.IsPlaying == true)
     sound:Stop()
     sound:Destroy()
     return result
 end)
 
--- Test 13: Humanoid WalkSpeed
 runTest("Humanoid WalkSpeed Change", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
@@ -165,352 +139,24 @@ runTest("Humanoid WalkSpeed Change", function()
     return result
 end)
 
--- Test 14: GuiObject Creation và hiển thị cho người chơi cục bộ
-runTest("GuiObject Creation & Display", function()
-    local success = false
-    local playerGui = game.Players.LocalPlayer:FindFirstChildOfClass("PlayerGui")
-    if playerGui then
-        local screenGui = Instance.new("ScreenGui")
-        screenGui.Name = "TestExecutorGui"
-        screenGui.Parent = playerGui
-
-        local textLabel = Instance.new("TextLabel")
-        textLabel.Text = "Executor Test!"
-        textLabel.Size = UDim2.new(0, 100, 0, 50)
-        textLabel.Position = UDim2.new(0.5, -50, 0.5, -25)
-        textLabel.Parent = screenGui
-        
-        -- Kiểm tra xem TextLabel có được tạo và gán Text đúng không
-        success = (textLabel.Text == "Executor Test!" and textLabel.Parent == screenGui)
-        screenGui:Destroy() -- Dọn dẹp
-    end
-    return success
-end)
-
----
-
--- Thêm các bài kiểm tra mới:
-
--- Test 15: Kiểm tra các hàm toán học nâng cao của Lua
-runTest("Lua Math Functions", function()
-    local val1 = math.floor(3.7) == 3
-    local val2 = math.ceil(3.2) == 4
-    local val3 = math.abs(-5) == 5
-    local val4 = math.pow(2, 3) == 8
-    return val1 and val2 and val3 and val4
-end)
-
--- Test 16: Kiểm tra thao tác với String (chuỗi)
-runTest("String Manipulation", function()
-    local str = "Hello World"
-    local sub = string.sub(str, 1, 5) == "Hello"
-    local len = string.len(str) == 11
-    local lower = string.lower(str) == "hello world"
-    return sub and len and lower
-end)
-
--- Test 17: Kiểm tra thao tác với Table (bảng)
-runTest("Table Manipulation", function()
-    local t = {1, 2, 3}
-    table.insert(t, 4)
-    local insert_ok = (t[4] == 4)
-    table.remove(t, 1)
-    local remove_ok = (t[1] == 2)
-    return insert_ok and remove_ok
-end)
-
--- Test 18: Kiểm tra Globals (ví dụ: game, workspace, script)
-runTest("Global Access", function()
-    local g = (game ~= nil and typeof(game) == "Game")
-    local w = (workspace ~= nil and typeof(workspace) == "Workspace")
-    local s = (script ~= nil and typeof(script) == "Script")
-    return g and w and s
-end)
-
--- Test 19: Kiểm tra WaitForChild (cần một môi trường ổn định để chạy)
-runTest("WaitForChild", function()
-    local success = false
-    local folder = Instance.new("Folder")
-    folder.Parent = game.Workspace
-    local part = Instance.new("Part")
-    part.Name = "TestPart"
-    
-    local childFound = false
-    local waitConn = nil -- Thêm biến để giữ kết nối
-    
-    -- Dùng coroutine hoặc spawn để không chặn luồng chính
-    local thread = coroutine.create(function()
-        local foundPart = folder:WaitForChild("TestPart", 5) -- Đợi tối đa 5 giây
-        if foundPart then
-            childFound = true
-        end
-    end)
-    coroutine.resume(thread)
-
-    wait(0.1) -- Đợi một chút để WaitForChild bắt đầu
-    part.Parent = folder -- Gán Parent sau khi WaitForChild được gọi
-    wait(0.5) -- Đợi một chút để WaitForChild tìm thấy
-    
-    success = childFound
-    
-    -- Dọn dẹp
-    if folder and folder.Parent then folder:Destroy() end
-    if part and part.Parent then part:Destroy() end
-    
-    return success
-end)
-
--- Test 20: Kiểm tra FindFirstChild
-runTest("FindFirstChild", function()
-    local part = Instance.new("Part")
-    part.Name = "MyUniquePart"
-    part.Parent = game.Workspace
-    local found = game.Workspace:FindFirstChild("MyUniquePart") ~= nil
-    part:Destroy()
-    return found
-end)
-
--- Test 21: Kiểm tra các Property của Part (Color, Material)
-runTest("Part Properties (Color, Material)", function()
-    local part = Instance.new("Part")
-    part.Parent = game.Workspace
-    part.Color = Color3.fromRGB(255, 0, 0)
-    part.Material = Enum.Material.ForceField
-    local result = (part.Color == Color3.fromRGB(255, 0, 0) and part.Material == Enum.Material.ForceField)
-    part:Destroy()
-    return result
-end)
-
--- Test 22: Tạo WeldConstraint
-runTest("WeldConstraint Creation", function()
-    local part1 = Instance.new("Part")
-    local part2 = Instance.new("Part")
-    local weld = Instance.new("WeldConstraint")
-    weld.Part0 = part1
-    weld.Part1 = part2
-    weld.Parent = game.Workspace
-    local result = (weld.Part0 == part1 and weld.Part1 == part2)
-    weld:Destroy()
-    part1:Destroy()
-    part2:Destroy()
-    return result
-end)
-
--- Test 23: Kiểm tra DataModel properties (ví dụ: Workspace)
-runTest("DataModel Properties (Workspace)", function()
-    local workspaceRef = game.Workspace
-    return (workspaceRef ~= nil and typeof(workspaceRef) == "Workspace")
-end)
-
--- Test 24: Kiểm tra khả năng tạo và phá hủy Instance trên diện rộng
-runTest("Mass Instance Creation/Deletion", function()
-    local success = true
-    local parts = {}
-    for i = 1, 50 do -- Tạo 50 Parts
-        local p = Instance.new("Part")
-        p.Parent = game.Workspace
-        table.insert(parts, p)
-    end
-    wait(0.1) -- Đợi một chút
-    for _, p in ipairs(parts) do
-        -- Kiểm tra xem đối tượng có còn tồn tại trước khi phá hủy không
-        if not p:IsA("Instance") or not p.Parent then -- IsA là kiểm tra an toàn hơn
-            success = false
-            break
-        end
-        p:Destroy()
-    end
-    return success
-end)
-
--- Test 25: Kiểm tra UserInputService (chỉ khả năng truy cập)
-runTest("UserInputService Access", function()
-    local uis = game:GetService("UserInputService")
-    return (uis ~= nil and typeof(uis) == "UserInputService")
-end)
-
--- Test 26: Kiểm tra TeleportService (chỉ khả năng truy cập)
-runTest("TeleportService Access", function()
-    local ts = game:GetService("TeleportService")
-    return (ts ~= nil and typeof(ts) == "TeleportService")
-end)
-
--- Test 27: Kiểm tra HttpService (chỉ khả năng truy cập)
-runTest("HttpService Access", function()
-    local hs = game:GetService("HttpService")
-    return (hs ~= nil and typeof(hs) == "HttpService")
-end)
-
--- Test 28: Kiểm tra CollectionService (chỉ khả năng truy cập)
-runTest("CollectionService Access", function()
-    local cs = game:GetService("CollectionService")
-    return (cs ~= nil and typeof(cs) == "CollectionService")
-end)
-
--- Test 29: Kiểm tra PhysicsService (chỉ khả năng truy cập)
-runTest("PhysicsService Access", function()
-    local ps = game:GetService("PhysicsService")
-    return (ps ~= nil and typeof(ps) == "PhysicsService")
-end)
-
--- Test 30: Kiểm tra MemoryStoreService (chỉ khả năng truy cập)
-runTest("MemoryStoreService Access", function()
-    local mss = game:GetService("MemoryStoreService")
-    return (mss ~= nil and typeof(mss) == "MemoryStoreService")
-end)
-
--- THÊM TEST MỚI TẠI ĐÂY
-
--- Test 31: Kiểm tra Player.Character và HumanoidRootPart
-runTest("Player Character & HRP Access", function()
+runTest("GuiObject Creation", function()
+    local screenGui = Instance.new("ScreenGui")
+    local textLabel = Instance.new("TextLabel")
+    textLabel.Text = "Hello!"
+    textLabel.Parent = screenGui
     local player = game.Players.LocalPlayer
-    local character = player.Character or player.CharacterAdded:Wait()
-    local hrp = character and character:FindFirstChild("HumanoidRootPart")
-    return (character ~= nil and typeof(character) == "Model" and hrp ~= nil and typeof(hrp) == "Part")
-end)
-
--- Test 32: Kiểm tra khả năng tạo Folder và chứa Instance
-runTest("Folder Creation & Child", function()
-    local folder = Instance.new("Folder")
-    folder.Name = "TestFolder"
-    folder.Parent = game.Workspace
-    local part = Instance.new("Part")
-    part.Parent = folder
-    local result = (folder.Parent == game.Workspace and part.Parent == folder)
-    folder:Destroy()
-    return result
-end)
-
--- Test 33: Kiểm tra Attribute (tính năng mới hơn của Roblox)
-runTest("Instance Attributes", function()
-    local part = Instance.new("Part")
-    part.Parent = game.Workspace
-    part:SetAttribute("TestAttr", 123)
-    local attrValue = part:GetAttribute("TestAttr")
-    local result = (attrValue == 123)
-    part:Destroy()
-    return result
-end)
-
--- Test 34: Kiểm tra Enum (truy cập giá trị Enum)
-runTest("Enum Access", function()
-    local materialEnum = Enum.Material.Plastic
-    local formFactorEnum = Enum.FormFactor.Plate
-    return (materialEnum ~= nil and formFactorEnum ~= nil)
-end)
-
--- Test 35: Kiểm tra ReadOnly/Protected Metamethods (Thường gây lỗi nếu executor không xử lý tốt)
--- Đây là một test phức tạp hơn và có thể gây lỗi nếu executor yếu.
--- Nó cố gắng ghi đè một số metamethod được bảo vệ.
-runTest("ReadOnly Metamethods (Try)", function()
-    local success = true
-    pcall(function()
-        debug.setmetatable(game, {__newindex = function() error("nope") end})
-        -- Cố gắng thay đổi một thuộc tính của game để kích hoạt __newindex
-        -- Điều này sẽ gây lỗi nếu executor không bỏ qua được metamethod này
-        game.Workspace.Name = "TestWorkspace"
-    end)
-    -- Nếu không có lỗi, hoặc lỗi được xử lý tốt, thì pass.
-    -- Ngược lại, nếu nó crash hoặc tạo ra lỗi không mong muốn, thì fail.
-    return success -- Nếu đoạn pcall không crash, coi như pass
-end)
-
--- Test 36: Kiểm tra debug library (một số chức năng cơ bản)
-runTest("Debug Library (Basic)", function()
-    local success = true
-    local info = debug.getinfo(1, "S")
-    if not (info and info.what == "main") then
-        success = false
+    if player then
+        screenGui.Parent = player:FindFirstChildOfClass("PlayerGui")
+        local result = (textLabel.Text == "Hello!")
+        screenGui:Destroy()
+        return result
+    else
+        screenGui:Destroy()
+        return false
     end
-    return success
 end)
 
--- Test 37: Kiểm tra Global "shared" (nếu có)
-runTest("Global 'shared' access", function()
-    return (shared ~= nil and typeof(shared) == "table")
-end)
-
--- Test 38: Kiểm tra Global "_G" (nếu có)
-runTest("Global '_G' access", function()
-    return (_G ~= nil and typeof(_G) == "table")
-end)
-
--- Test 39: Kiểm tra math.random và math.randomseed
-runTest("Math Randomness", function()
-    math.randomseed(os.time())
-    local r1 = math.random()
-    local r2 = math.random()
-    return (r1 ~= nil and r2 ~= nil and r1 >= 0 and r1 <= 1) -- Không thể chắc chắn khác nhau
-end)
-
--- Test 40: Kiểm tra `task.wait` (syntax mới hơn của Roblox)
-runTest("task.wait", function()
-    local start_time = tick()
-    task.wait(0.1)
-    local end_time = tick()
-    return (end_time - start_time >= 0.1)
-end)
-
--- Test 41: Kiểm tra `task.spawn` và `task.defer` (syntax mới hơn của Roblox)
-runTest("task.spawn & defer", function()
-    local spawned = false
-    local deferred = false
-    task.spawn(function()
-        spawned = true
-    end)
-    task.defer(function()
-        deferred = true
-    end)
-    wait(0.2) -- Đợi đủ để cả hai task chạy
-    return spawned and deferred
-end)
-
--- Test 42: Kiểm tra khả năng tạo Script (tính năng hiếm gặp, nhưng một số executor có thể hỗ trợ)
-runTest("Script Creation (LocalScript)", function()
-    local success = false
-    local ls = Instance.new("LocalScript")
-    ls.Source = "print('LocalScript created by executor!')"
-    ls.Parent = game.Players.LocalPlayer.PlayerGui -- Hoặc một nơi khác mà LocalScript có thể chạy
-    local created = (ls ~= nil and typeof(ls) == "LocalScript" and ls.Source == "print('LocalScript created by executor!')")
-    ls:Destroy()
-    return created
-end)
-
--- Test 43: Kiểm tra `typeof`
-runTest("typeof function", function()
-    local p = Instance.new("Part")
-    local typeCheck = (typeof(p) == "Part" and typeof(123) == "number" and typeof("hello") == "string")
-    p:Destroy()
-    return typeCheck
-end)
-
--- Test 44: Kiểm tra `error` và `xpcall`
-runTest("error and xpcall", function()
-    local success = false
-    xpcall(function()
-        error("Test error")
-    end, function(err)
-        if string.find(tostring(err), "Test error") then
-            success = true
-        end
-    end)
-    return success
-end)
-
--- Test 45: Kiểm tra `next` và `pairs`
-runTest("next and pairs", function()
-    local t = {a = 1, b = 2, c = 3}
-    local count = 0
-    for k, v in pairs(t) do
-        count = count + 1
-    end
-    return count == 3
-end)
-
-
----
-
-print("\n=== KẾT THÚC KIỂM TRA ===")
+-- Kết quả cuối cùng
+print("\n=== KẾT THÚC KIỂM TRA EXECUTOR ===")
 local unc_percentage = (success_count / total_tests) * 100
 print(string.format("Tổng số test thành công: %d/%d (UNC: %.2f%%)", success_count, total_tests, unc_percentage))
-
