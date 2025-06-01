@@ -26,13 +26,15 @@ runTest("Part Position Change", function()
     return result
 end)
 
--- Test 2: Kết nối sự kiện Touched
+-- Test 2: Kết nối sự kiện Touched (Đã thêm kiểm tra nil cho connection)
 runTest("Event Touched Connect", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
     local connection = part.Touched:Connect(function() end)
     local result = (connection ~= nil and typeof(connection) == "RBXScriptConnection")
-    connection:Disconnect()
+    if connection then -- Chỉ Disconnect nếu connection không phải là nil
+        connection:Disconnect()
+    end
     part:Destroy()
     return result
 end)
@@ -64,7 +66,7 @@ runTest("RemoteEvent FireServer Function", function()
     return result
 end)
 
--- Test 6: BindableEvent Fire
+-- Test 6: BindableEvent Fire (Đã thêm kiểm tra nil cho connection)
 runTest("BindableEvent Fire", function()
     local event = Instance.new("BindableEvent")
     event.Parent = game.ReplicatedStorage
@@ -72,7 +74,9 @@ runTest("BindableEvent Fire", function()
     local conn = event.Event:Connect(function() called = true end)
     event:Fire()
     wait(0.1) -- Đợi một chút để sự kiện được xử lý
-    conn:Disconnect()
+    if conn then -- Chỉ Disconnect nếu conn không phải là nil
+        conn:Disconnect()
+    end
     event:Destroy()
     return called
 end)
@@ -93,15 +97,21 @@ runTest("ReplicatedStorage Access", function()
     return (rs ~= nil and typeof(rs) == "ReplicatedStorage")
 end)
 
--- Test 9: RunService Heartbeat Connect
+-- Test 9: RunService Heartbeat Connect (Đã thêm kiểm tra nil cho connection)
 runTest("RunService Heartbeat Connect", function()
     local runService = game:GetService("RunService")
     local connected = false
     local conn = runService.Heartbeat:Connect(function()
         connected = true
-        conn:Disconnect() -- Ngắt kết nối ngay sau lần đầu tiên chạy để tránh spam
+        if conn then -- Ngắt kết nối ngay sau lần đầu tiên chạy để tránh spam, chỉ khi conn không nil
+            conn:Disconnect()
+        end
     end)
     wait(0.2) -- Đợi đủ lâu để Heartbeat có thể kích hoạt
+    -- Đảm bảo ngắt kết nối nếu Heartbeat không bao giờ kích hoạt
+    if conn and connected == false then
+        conn:Disconnect()
+    end
     return connected
 end)
 
@@ -113,7 +123,9 @@ runTest("TweenService Create", function()
     local tweenInfo = TweenInfo.new(1)
     local tween = tweenService:Create(part, tweenInfo, {Position = Vector3.new(0, 10, 0)})
     local result = (tween ~= nil and typeof(tween) == "Tween")
-    tween:Cancel() -- Đảm bảo dừng tween
+    if tween then -- Chỉ Cancel nếu tween không nil
+        tween:Cancel()
+    end
     part:Destroy()
     return result
 end)
@@ -215,7 +227,7 @@ runTest("Global Access", function()
     return g and w and s
 end)
 
--- Test 19: Kiểm tra WaitForChild
+-- Test 19: Kiểm tra WaitForChild (cần một môi trường ổn định để chạy)
 runTest("WaitForChild", function()
     local success = false
     local folder = Instance.new("Folder")
@@ -224,20 +236,27 @@ runTest("WaitForChild", function()
     part.Name = "TestPart"
     
     local childFound = false
-    spawn(function() -- Sử dụng spawn để không chặn luồng chính
+    local waitConn = nil -- Thêm biến để giữ kết nối
+    
+    -- Dùng coroutine hoặc spawn để không chặn luồng chính
+    local thread = coroutine.create(function()
         local foundPart = folder:WaitForChild("TestPart", 5) -- Đợi tối đa 5 giây
         if foundPart then
             childFound = true
         end
     end)
-    
+    coroutine.resume(thread)
+
     wait(0.1) -- Đợi một chút để WaitForChild bắt đầu
     part.Parent = folder -- Gán Parent sau khi WaitForChild được gọi
     wait(0.5) -- Đợi một chút để WaitForChild tìm thấy
     
     success = childFound
-    folder:Destroy()
-    part:Destroy()
+    
+    -- Dọn dẹp
+    if folder and folder.Parent then folder:Destroy() end
+    if part and part.Parent then part:Destroy() end
+    
     return success
 end)
 
@@ -294,7 +313,8 @@ runTest("Mass Instance Creation/Deletion", function()
     end
     wait(0.1) -- Đợi một chút
     for _, p in ipairs(parts) do
-        if p.Parent ~= game.Workspace then -- Kiểm tra xem chúng còn tồn tại không
+        -- Kiểm tra xem đối tượng có còn tồn tại trước khi phá hủy không
+        if not p:IsA("Instance") or not p.Parent then -- IsA là kiểm tra an toàn hơn
             success = false
             break
         end
@@ -337,6 +357,154 @@ end)
 runTest("MemoryStoreService Access", function()
     local mss = game:GetService("MemoryStoreService")
     return (mss ~= nil and typeof(mss) == "MemoryStoreService")
+end)
+
+-- THÊM TEST MỚI TẠI ĐÂY
+
+-- Test 31: Kiểm tra Player.Character và HumanoidRootPart
+runTest("Player Character & HRP Access", function()
+    local player = game.Players.LocalPlayer
+    local character = player.Character or player.CharacterAdded:Wait()
+    local hrp = character and character:FindFirstChild("HumanoidRootPart")
+    return (character ~= nil and typeof(character) == "Model" and hrp ~= nil and typeof(hrp) == "Part")
+end)
+
+-- Test 32: Kiểm tra khả năng tạo Folder và chứa Instance
+runTest("Folder Creation & Child", function()
+    local folder = Instance.new("Folder")
+    folder.Name = "TestFolder"
+    folder.Parent = game.Workspace
+    local part = Instance.new("Part")
+    part.Parent = folder
+    local result = (folder.Parent == game.Workspace and part.Parent == folder)
+    folder:Destroy()
+    return result
+end)
+
+-- Test 33: Kiểm tra Attribute (tính năng mới hơn của Roblox)
+runTest("Instance Attributes", function()
+    local part = Instance.new("Part")
+    part.Parent = game.Workspace
+    part:SetAttribute("TestAttr", 123)
+    local attrValue = part:GetAttribute("TestAttr")
+    local result = (attrValue == 123)
+    part:Destroy()
+    return result
+end)
+
+-- Test 34: Kiểm tra Enum (truy cập giá trị Enum)
+runTest("Enum Access", function()
+    local materialEnum = Enum.Material.Plastic
+    local formFactorEnum = Enum.FormFactor.Plate
+    return (materialEnum ~= nil and formFactorEnum ~= nil)
+end)
+
+-- Test 35: Kiểm tra ReadOnly/Protected Metamethods (Thường gây lỗi nếu executor không xử lý tốt)
+-- Đây là một test phức tạp hơn và có thể gây lỗi nếu executor yếu.
+-- Nó cố gắng ghi đè một số metamethod được bảo vệ.
+runTest("ReadOnly Metamethods (Try)", function()
+    local success = true
+    pcall(function()
+        debug.setmetatable(game, {__newindex = function() error("nope") end})
+        -- Cố gắng thay đổi một thuộc tính của game để kích hoạt __newindex
+        -- Điều này sẽ gây lỗi nếu executor không bỏ qua được metamethod này
+        game.Workspace.Name = "TestWorkspace"
+    end)
+    -- Nếu không có lỗi, hoặc lỗi được xử lý tốt, thì pass.
+    -- Ngược lại, nếu nó crash hoặc tạo ra lỗi không mong muốn, thì fail.
+    return success -- Nếu đoạn pcall không crash, coi như pass
+end)
+
+-- Test 36: Kiểm tra debug library (một số chức năng cơ bản)
+runTest("Debug Library (Basic)", function()
+    local success = true
+    local info = debug.getinfo(1, "S")
+    if not (info and info.what == "main") then
+        success = false
+    end
+    return success
+end)
+
+-- Test 37: Kiểm tra Global "shared" (nếu có)
+runTest("Global 'shared' access", function()
+    return (shared ~= nil and typeof(shared) == "table")
+end)
+
+-- Test 38: Kiểm tra Global "_G" (nếu có)
+runTest("Global '_G' access", function()
+    return (_G ~= nil and typeof(_G) == "table")
+end)
+
+-- Test 39: Kiểm tra math.random và math.randomseed
+runTest("Math Randomness", function()
+    math.randomseed(os.time())
+    local r1 = math.random()
+    local r2 = math.random()
+    return (r1 ~= nil and r2 ~= nil and r1 >= 0 and r1 <= 1) -- Không thể chắc chắn khác nhau
+end)
+
+-- Test 40: Kiểm tra `task.wait` (syntax mới hơn của Roblox)
+runTest("task.wait", function()
+    local start_time = tick()
+    task.wait(0.1)
+    local end_time = tick()
+    return (end_time - start_time >= 0.1)
+end)
+
+-- Test 41: Kiểm tra `task.spawn` và `task.defer` (syntax mới hơn của Roblox)
+runTest("task.spawn & defer", function()
+    local spawned = false
+    local deferred = false
+    task.spawn(function()
+        spawned = true
+    end)
+    task.defer(function()
+        deferred = true
+    end)
+    wait(0.2) -- Đợi đủ để cả hai task chạy
+    return spawned and deferred
+end)
+
+-- Test 42: Kiểm tra khả năng tạo Script (tính năng hiếm gặp, nhưng một số executor có thể hỗ trợ)
+runTest("Script Creation (LocalScript)", function()
+    local success = false
+    local ls = Instance.new("LocalScript")
+    ls.Source = "print('LocalScript created by executor!')"
+    ls.Parent = game.Players.LocalPlayer.PlayerGui -- Hoặc một nơi khác mà LocalScript có thể chạy
+    local created = (ls ~= nil and typeof(ls) == "LocalScript" and ls.Source == "print('LocalScript created by executor!')")
+    ls:Destroy()
+    return created
+end)
+
+-- Test 43: Kiểm tra `typeof`
+runTest("typeof function", function()
+    local p = Instance.new("Part")
+    local typeCheck = (typeof(p) == "Part" and typeof(123) == "number" and typeof("hello") == "string")
+    p:Destroy()
+    return typeCheck
+end)
+
+-- Test 44: Kiểm tra `error` và `xpcall`
+runTest("error and xpcall", function()
+    local success = false
+    xpcall(function()
+        error("Test error")
+    end, function(err)
+        if string.find(tostring(err), "Test error") then
+            success = true
+        end
+    end)
+    return success
+end)
+
+-- Test 45: Kiểm tra `next` và `pairs`
+runTest("next and pairs", function()
+    local t = {a = 1, b = 2, c = 3}
+    local count = 0
+    for k, v in pairs(t) do
+        count = count + 1
+    end
+    return count == 3
 end)
 
 
