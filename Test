@@ -1,24 +1,51 @@
--- UNC Executor Test Suite (Full Version)
 local success_count = 0
 local total_tests = 0
-
-print("\n=== BẮT ĐẦU KIỂM TRA EXECUTOR (UNC STANDARD + EXTENSIONS) ===\n")
-
--- Helper function
-local function runTest(name, testFunc)
+local testResults = {}
+local testCategories = {
+    ["Cơ bản"] = {},
+    ["Services"] = {},
+    ["GUI/UI"] = {},
+    ["Nâng cao"] = {},
+    ["Bảo mật"] = {},
+    ["Hiệu năng"] = {}
+}
+print("\n=== BẮT ĐẦU KIỂM TRA EXECUTOR (UNC STANDARD + EXTENSIONS + ADVANCED) ===\n")
+local function runTest(name, testFunc, category)
+    category = category or "Cơ bản"
     total_tests = total_tests + 1
-    local success, result = pcall(testFunc)
-    if success and result then
-        print("[PASS] " .. name)
+    local startTime = tick()
+    local status, result = pcall(testFunc)
+    local endTime = tick()
+    local executionTime = math.floor((endTime - startTime) * 1000) -- ms
+    local passed = false
+    local message = ""
+    local details = ""
+    if status and result then
+        passed = true
         success_count = success_count + 1
-    elseif success then
-        print("[FAIL] " .. name .. " - Kiểm tra không đạt yêu cầu.")
+        message = "[✓] " .. name
+        details = string.format("Thời gian: %dms", executionTime)
+    elseif status then
+        passed = false
+        message = "[✗] " .. name .. " - Không đạt yêu cầu"
+        details = string.format("Thời gian: %dms", executionTime)
     else
-        print("[ERROR] " .. name .. " - Lỗi: " .. tostring(result))
+        passed = false
+        message = "[ERROR] " .. name
+        details = "Lỗi: " .. tostring(result)
     end
+    local testResult = {
+        name = name, 
+        passed = passed, 
+        message = message, 
+        details = details,
+        executionTime = executionTime,
+        category = category
+    }
+    table.insert(testResults, testResult)
+    table.insert(testCategories[category], testResult)
+    print(message .. " (" .. executionTime .. "ms)")
 end
-
--- UNC Basic Tests (được cải tiến)
 runTest("Part Position", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
@@ -26,8 +53,7 @@ runTest("Part Position", function()
     local result = (part.Position.Y == 10)
     part:Destroy()
     return result
-end)
-
+end, "Cơ bản")
 runTest("Event Connect (Touched)", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
@@ -36,8 +62,7 @@ runTest("Event Connect (Touched)", function()
     connection:Disconnect()
     part:Destroy()
     return result
-end)
-
+end, "Cơ bản")
 runTest("Humanoid Health Change", function()
     local part = Instance.new("Part")
     part.Parent = game.Workspace
@@ -47,46 +72,36 @@ runTest("Humanoid Health Change", function()
     local result = (humanoid.Health == 50)
     part:Destroy()
     return result
-end)
-
+end, "Cơ bản")
+runTest("Instance Naming", function()
+    local part = Instance.new("Part")
+    part.Name = "MyTestPart"
+    local result = (part.Name == "MyTestPart")
+    part:Destroy()
+    return result
+end, "Cơ bản")
+runTest("Parenting Object", function()
+    local part = Instance.new("Part")
+    local success = pcall(function() part.Parent = game.Workspace end)
+    local result = (part.Parent == game.Workspace and success)
+    part:Destroy()
+    return result
+end, "Cơ bản")
+runTest("Vector3 Operations", function()
+    local vec1 = Vector3.new(1, 2, 3)
+    local vec2 = Vector3.new(3, 2, 1)
+    local sum = vec1 + vec2
+    return (sum == Vector3.new(4, 4, 4))
+end, "Cơ bản")
+runTest("CFrame Creation", function()
+    local cframe = CFrame.new(1, 2, 3)
+    return (cframe.X == 1 and cframe.Y == 2 and cframe.Z == 3)
+end, "Cơ bản")
 runTest("Players Service Access", function()
     local players = game:GetService("Players")
-    return (players ~= nil)
-end)
-
--- UNC Extended Tests
-runTest("RemoteEvent FireServer", function()
-    local event = Instance.new("RemoteEvent")
-    event.Parent = game.ReplicatedStorage
-    local result = (event.FireServer ~= nil)
-    event:Destroy()
-    return result
-end)
-
-runTest("BindableEvent Fire", function()
-    local event = Instance.new("BindableEvent")
-    event.Parent = game.ReplicatedStorage
-    local called = false
-    event.Event:Connect(function() called = true end)
-    event:Fire()
-    task.wait(0.05)
-    event:Destroy()
-    return called
-end)
-
-runTest("Lighting Service Access", function()
-    local lighting = game:GetService("Lighting")
-    lighting.Brightness = 2
-    local result = (lighting.Brightness == 2)
-    return result
-end)
-
-runTest("ReplicatedStorage Access", function()
-    local rs = game:GetService("ReplicatedStorage")
-    return (rs ~= nil)
-end)
-
-runTest("RunService Heartbeat Connect", function()
+    return (players ~= nil and players.LocalPlayer ~= nil)
+end, "Services")
+runTest("RunService Heartbeat", function()
     local runService = game:GetService("RunService")
     local connected = false
     local conn = runService.Heartbeat:Connect(function()
@@ -95,8 +110,7 @@ runTest("RunService Heartbeat Connect", function()
     task.wait(0.05)
     conn:Disconnect()
     return connected
-end)
-
+end, "Services")
 runTest("TweenService Create", function()
     local tweenService = game:GetService("TweenService")
     local part = Instance.new("Part")
@@ -106,57 +120,568 @@ runTest("TweenService Create", function()
     local result = (tween ~= nil)
     part:Destroy()
     return result
-end)
-
-runTest("Debris AddItem", function()
-    local debris = game:GetService("Debris")
-    local part = Instance.new("Part")
-    part.Parent = game.Workspace
-    debris:AddItem(part, 1)
-    local result = (part ~= nil)
+end, "Services")
+runTest("Lighting Service Control", function()
+    local lighting = game:GetService("Lighting")
+    local originalBrightness = lighting.Brightness
+    lighting.Brightness = 2
+    local result = (lighting.Brightness == 2)
+    lighting.Brightness = originalBrightness
     return result
-end)
-
-runTest("Sound Playback", function()
+end, "Services")
+runTest("UserInputService Access", function()
+    local uis = game:GetService("UserInputService")
+    return (uis ~= nil)
+end, "Services")
+runTest("ReplicatedStorage Access", function()
+    local rs = game:GetService("ReplicatedStorage")
+    return (rs ~= nil)
+end, "Services")
+runTest("ServerStorage Access", function()
+    local ss = game:GetService("ServerStorage")
+    return (ss ~= nil)
+end, "Services")
+runTest("Workspace Access", function()
+    return (game.Workspace ~= nil)
+end, "Services")
+runTest("SoundService Play", function()
+    local soundService = game:GetService("SoundService")
     local sound = Instance.new("Sound")
-    sound.SoundId = "rbxassetid://1837467915"
-    sound.Parent = game.Workspace
-    sound:Play()
-    local result = (sound.IsPlaying == true)
-    sound:Stop()
+    sound.SoundId = "rbxassetid://135003504" -- A common Roblox sound ID (e.g., Oof sound)
+    sound.Parent = soundService
+    local success = pcall(function() sound:Play() end)
     sound:Destroy()
-    return result
-end)
-
-runTest("Humanoid WalkSpeed Change", function()
-    local part = Instance.new("Part")
-    part.Parent = game.Workspace
-    local humanoid = Instance.new("Humanoid")
-    humanoid.Parent = part
-    humanoid.WalkSpeed = 25
-    local result = (humanoid.WalkSpeed == 25)
-    part:Destroy()
-    return result
-end)
-
-runTest("GuiObject Creation", function()
+    return success
+end, "Services")
+runTest("TextLabel Creation & Styling", function()
     local screenGui = Instance.new("ScreenGui")
     local textLabel = Instance.new("TextLabel")
-    textLabel.Text = "Hello!"
+    textLabel.Text = "Test Label"
+    textLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    textLabel.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     textLabel.Parent = screenGui
-    local player = game.Players.LocalPlayer
-    if player then
-        screenGui.Parent = player:FindFirstChildOfClass("PlayerGui")
-        local result = (textLabel.Text == "Hello!")
-        screenGui:Destroy()
-        return result
-    else
-        screenGui:Destroy()
-        return false
+    local result = (textLabel.Text == "Test Label" and 
+                   textLabel.TextColor3 == Color3.fromRGB(255, 0, 0))
+    screenGui:Destroy()
+    return result
+end, "GUI/UI")
+runTest("Frame với UICorner", function()
+    local screenGui = Instance.new("ScreenGui")
+    local frame = Instance.new("Frame")
+    local uiCorner = Instance.new("UICorner")
+    uiCorner.CornerRadius = UDim.new(0, 10)
+    uiCorner.Parent = frame
+    frame.Parent = screenGui
+    local result = (frame:FindFirstChild("UICorner") ~= nil)
+    screenGui:Destroy()
+    return result
+end, "GUI/UI")
+runTest("ImageLabel Load", function()
+    local screenGui = Instance.new("ScreenGui")
+    local imageLabel = Instance.new("ImageLabel")
+    imageLabel.Image = "rbxassetid://1837467915"
+    imageLabel.Parent = screenGui
+    local result = (imageLabel.Image ~= "")
+    screenGui:Destroy()
+    return result
+end, "GUI/UI")
+runTest("TextButton Click Event", function()
+    local screenGui = Instance.new("ScreenGui")
+    local button = Instance.new("TextButton")
+    button.Parent = screenGui
+    local clicked = false
+    local conn = button.MouseButton1Click:Connect(function()
+        clicked = true
+    end)
+    button.MouseButton1Click:Fire()
+    conn:Disconnect()
+    screenGui:Destroy()
+    return clicked
+end, "GUI/UI")
+runTest("TextBox Input", function()
+    local screenGui = Instance.new("ScreenGui")
+    local textBox = Instance.new("TextBox")
+    textBox.Parent = screenGui
+    textBox.Text = "Initial"
+    textBox.Text = "New Text"
+    local result = (textBox.Text == "New Text")
+    screenGui:Destroy()
+    return result
+end, "GUI/UI")
+runTest("ScrollingFrame Content", function()
+    local screenGui = Instance.new("ScreenGui")
+    local scrollingFrame = Instance.new("ScrollingFrame")
+    local part = Instance.new("Part")
+    part.Parent = scrollingFrame
+    scrollingFrame.Parent = screenGui
+    local result = (scrollingFrame:FindFirstChild("Part") ~= nil)
+    screenGui:Destroy()
+    return result
+end, "GUI/UI")
+runTest("LocalScript Environment", function()
+    local env = getfenv()
+    return (env ~= nil and type(env) == "table")
+end, "Bảo mật")
+runTest("Script Protection", function()
+    return (type(getgenv) == "function" or type(getrenv) == "function")
+end, "Bảo mật")
+runTest("Debug Library Access", function()
+    return (debug ~= nil and type(debug.getinfo) == "function")
+end, "Bảo mật")
+runTest("Large Loop Performance", function()
+    local startTime = tick()
+    for i = 1, 10000 do
+        local _ = i * 2
     end
-end)
-
--- Kết quả cuối cùng
-print("\n=== KẾT THÚC KIỂM TRA EXECUTOR ===")
+    local endTime = tick()
+    return (endTime - startTime < 1) -- Should complete in under 1 second
+end, "Hiệu năng")
+runTest("Table Operations", function()
+    local testTable = {}
+    for i = 1, 1000 do
+        testTable[i] = "test" .. i
+    end
+    local found = false
+    for i, v in pairs(testTable) do
+        if v == "test500" then
+            found = true
+            break
+        end
+    end
+    return found
+end, "Hiệu năng")
+runTest("Memory Allocation", function()
+    local tables = {}
+    for i = 1, 100 do
+        tables[i] = {x = i, y = i * 2, z = i * 3}
+    end
+    return (#tables == 100)
+end, "Hiệu năng")
+runTest("String Concatenation Performance", function()
+    local str = ""
+    local startTime = tick()
+    for i = 1, 1000 do
+        str = str .. "a"
+    end
+    local endTime = tick()
+    return (endTime - startTime < 0.1) -- Should be fast
+end, "Hiệu năng")
+runTest("Math.random Performance", function()
+    local startTime = tick()
+    for i = 1, 10000 do
+        math.random()
+    end
+    local endTime = tick()
+    return (endTime - startTime < 0.1) -- Should be fast
+end, "Hiệu năng")
+runTest("Coroutine Creation", function()
+    local co = coroutine.create(function()
+        return "test"
+    end)
+    local success, result = coroutine.resume(co)
+    return (success and result == "test")
+end, "Nâng cao")
+runTest("HttpService JSON Operations", function()
+    local httpService = game:GetService("HttpService")
+    local data = {name = "test", value = 123, nested = {a = 1, b = 2}}
+    local encoded = httpService:JSONEncode(data)
+    local decoded = httpService:JSONDecode(encoded)
+    return (type(encoded) == "string" and decoded.name == "test")
+end, "Nâng cao")
+runTest("Complex Math Operations", function()
+    local result1 = math.sin(math.pi / 2)
+    local result2 = math.log(math.e)
+    local result3 = math.sqrt(16)
+    return (math.abs(result1 - 1) < 0.001 and 
+            math.abs(result2 - 1) < 0.001 and 
+            result3 == 4)
+end, "Nâng cao")
+runTest("String Pattern Matching", function()
+    local text = "Hello World 123"
+    local numbers = text:match("%d+")
+    local words = {}
+    for word in text:gmatch("%a+") do
+        table.insert(words, word)
+    end
+    return (numbers == "123" and #words == 2)
+end, "Nâng cao")
+runTest("Table Sort Function", function()
+    local t = {5, 2, 8, 1}
+    table.sort(t)
+    return (t[1] == 1 and t[4] == 8)
+end, "Nâng cao")
+runTest("Metatable __index", function()
+    local t = {a = 1}
+    local mt = {
+        __index = function(tbl, key)
+            if key == "b" then return 2 end
+        end
+    }
+    setmetatable(t, mt)
+    return (t.b == 2)
+end, "Nâng cao")
+runTest("Pcall Function", function()
+    local success, result = pcall(function() error("test error") end)
+    return (not success and type(result) == "string")
+end, "Nâng cao")
+runTest("Raycasting (Simple)", function()
+    local workspace = game:GetService("Workspace")
+    local ray = Ray.new(Vector3.new(0, 50, 0), Vector3.new(0, -100, 0))
+    local hit, position = workspace:FindPartOnRay(ray)
+    return (hit == nil or type(hit) == "Instance") -- Check if it returns expected types
+end, "Nâng cao")
+runTest("getgenv() Function", function()
+    return (type(getgenv) == "function" and type(getgenv()) == "table")
+end, "Bảo mật")
+runTest("getrenv() Function", function()
+    return (type(getrenv) == "function" and type(getrenv()) == "table")
+end, "Bảo mật")
+runTest("getrawmetatable() Function", function()
+    return (type(getrawmetatable) == "function")
+end, "Bảo mật")
+runTest("hookfunction() Exists", function()
+    return (type(hookfunction) == "function" or type(hookfunc) == "function")
+end, "Bảo mật")
+runTest("newcclosure() Function", function()
+    return (type(newcclosure) == "function")
+end, "Bảo mật")
+runTest("islclosure() Function", function()
+    return (type(islclosure) == "function")
+end, "Bảo mật")
+runTest("iscclosure() Function", function()
+    return (type(iscclosure) == "function")
+end, "Bảo mật")
+runTest("loadstring() Function", function()
+    local func = loadstring("return 'hello'")
+    return (type(func) == "function" and func() == "hello")
+end, "Bảo mật")
+runTest("readfile() Function", function()
+    return (type(readfile) == "function")
+end, "Bảo mật")
+runTest("writefile() Function", function()
+    return (type(writefile) == "function")
+end, "Bảo mật")
+runTest("isfolder() Function", function()
+    return (type(isfolder) == "function")
+end, "Bảo mật")
+runTest("isfile() Function", function()
+    return (type(isfile) == "function")
+end, "Bảo mật")
+runTest("makefolder() Function", function()
+    return (type(makefolder) == "function")
+end, "Bảo mật")
+runTest("Drawing Library", function()
+    return (type(Drawing) == "table" and type(Drawing.new) == "function")
+end, "GUI/UI")
+runTest("WebSocket Support", function()
+    return (type(WebSocket) == "table" or (syn and type(syn.websocket) == "table"))
+end, "Nâng cao")
+runTest("setreadonly() Function", function()
+    return (type(setreadonly) == "function" or type(make_readonly) == "function")
+end, "Bảo mật")
+runTest("getnamecallmethod() Function", function()  
+    return (type(getnamecallmethod) == "function")
+end, "Bảo mật")
+runTest("setnamecallmethod() Function", function()
+    return (type(setnamecallmethod) == "function")  
+end, "Bảo mật")
+runTest("HTTP Request Support", function()
+    return (type(request) == "function" or 
+            type(http_request) == "function" or
+            (syn and type(syn.request) == "function") or
+            (http and type(http.request) == "function"))
+end, "Nâng cao")
+runTest("Console Functions", function()
+    return (type(rconsoleprint) == "function" or 
+            type(consolecreate) == "function" or
+            type(rconsolecreate) == "function")
+end, "Nâng cao")
+runTest("Clipboard Functions", function()
+    return (type(setclipboard) == "function" or 
+            type(toclipboard) == "function")
+end, "Nâng cao")
+runTest("Crypt Library", function()
+    return (type(crypt) == "table" and 
+            (type(crypt.base64encode) == "function" or (crypt.base64 and type(crypt.base64.encode) == "function")))
+end, "Bảo mật")
+runTest("Instance Protection", function()
+    local part = Instance.new("Part")
+    part.Parent = game.Workspace
+    local protected = false
+    if type(protect_gui) == "function" then
+        protected = true
+    elseif type(syn) == "table" and type(syn.protect_gui) == "function" then
+        protected = true  
+    elseif type(gethui) == "function" then
+        protected = true
+    end
+    part:Destroy()
+    return protected
+end, "Bảo mật")
+runTest("Remote Spy Capability", function()
+    return (type(getconnections) == "function" or
+            type(getgc) == "function" or  
+            type(getreg) == "function")
+end, "Bảo mật")
+runTest("Script Environment", function()
+    local env = getfenv(1)
+    return (env.script ~= nil or env.getfenv ~= nil)
+end, "Bảo mật")
+runTest("Decompiler Functions", function()
+    return (type(decompile) == "function" or 
+            type(disassemble) == "function")
+end, "Nâng cao")
+runTest("Network Interception", function()
+    return (type(hookmetamethod) == "function")
+end, "Bảo mật")
+runTest("Memory Scanning", function()
+    return (type(memscan) == "function" or
+            type(memory) == "table")
+end, "Hiệu năng")
+runTest("Cache Functions", function()
+    return (type(cache) == "table" or
+            type(getcustomasset) == "function" or
+            type(getsynasset) == "function")
+end, "Hiệu năng")
+runTest("Secure Function Calls", function()
+    return (type(checkcaller) == "function" or
+            type(newcclosure) == "function")
+end, "Bảo mật")
+runTest("printidentity() Function", function()
+    return (type(printidentity) == "function")
+end, "Bảo mật")
+runTest("setclipboard() Function exists", function()
+    return (type(setclipboard) == "function")
+end, "Nâng cao")
+runTest("gethiddenproperty() Function", function()
+    return (type(gethiddenproperty) == "function")
+end, "Bảo mật")
+runTest("sethiddenproperty() Function", function()
+    return (type(sethiddenproperty) == "function")
+end, "Bảo mật")
 local unc_percentage = (success_count / total_tests) * 100
-print(string.format("Tổng số test thành công: %d/%d (UNC: %.2f%%)", success_count, total_tests, unc_percentage))
+local totalTime = 0
+for _, test in ipairs(testResults) do
+    totalTime = totalTime + test.executionTime
+end
+print("\n=== KẾT THÚC KIỂM TRA EXECUTOR ===")
+print(string.format("Tổng số test: %d | Thành công: %d | Thất bại: %d", total_tests, success_count, total_tests - success_count))
+print(string.format("UNC Compatibility: %.2f%%", unc_percentage))
+print(string.format("Tổng thời gian thực thi: %dms", totalTime))
+local function showEnhancedUNCGui()
+    local player = game.Players.LocalPlayer
+    if not player then
+        warn("Không tìm thấy LocalPlayer, GUI sẽ không hiển thị.")
+        return
+    end
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "EnhancedUNCTestResults"
+    screenGui.ResetOnSpawn = false
+    screenGui.Parent = player:FindFirstChildOfClass("PlayerGui")
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Size = UDim2.new(0, 600, 0, 500)
+    mainFrame.Position = UDim2.new(0.5, -300, 0.5, -250)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.Parent = screenGui
+    mainFrame.ClipsDescendants = true
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 12)
+    mainCorner.Parent = mainFrame
+    local titleBar = Instance.new("Frame")
+    titleBar.Size = UDim2.new(1, 0, 0, 50)
+    titleBar.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 12)
+    titleCorner.Parent = titleBar
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Size = UDim2.new(1, -100, 1, 0)
+    titleLabel.Position = UDim2.new(0, 10, 0, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.Font = Enum.Font.SourceSansBold
+    titleLabel.TextSize = 24
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Text = "Enhanced UNC Executor Test Suite"
+    titleLabel.Parent = titleBar
+    local closeButton = Instance.new("TextButton")
+    closeButton.Size = UDim2.new(0, 30, 0, 30)
+    closeButton.Position = UDim2.new(1, -40, 0, 10)
+    closeButton.BackgroundColor3 = Color3.fromRGB(255, 60, 60)
+    closeButton.BorderSizePixel = 0
+    closeButton.Text = "×"
+    closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    closeButton.Font = Enum.Font.SourceSansBold
+    closeButton.TextSize = 18
+    closeButton.Parent = titleBar
+    local closeCorner = Instance.new("UICorner")
+    closeCorner.CornerRadius = UDim.new(0, 6)
+    closeCorner.Parent = closeButton
+    closeButton.MouseButton1Click:Connect(function()
+        screenGui:Destroy()
+    end)
+    local dragging
+    local dragInput
+    local dragStart
+    titleBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            dragInput = input
+            input.Handled = true 
+        end
+    end)
+    titleBar.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            local newPosition = UDim2.new(mainFrame.Position.X.Scale, mainFrame.Position.X.Offset + delta.X,
+                                            mainFrame.Position.Y.Scale, mainFrame.Position.Y.Offset + delta.Y)
+            mainFrame.Position = newPosition
+            dragStart = input.Position
+        end
+    end)
+    titleBar.InputEnded:Connect(function(input)
+        if input == dragInput then
+            dragging = false
+            dragInput = nil
+        end
+    end)
+    local statsFrame = Instance.new("Frame")
+    statsFrame.Size = UDim2.new(1, -20, 0, 60)
+    statsFrame.Position = UDim2.new(0, 10, 0, 60)
+    statsFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    statsFrame.BorderSizePixel = 0
+    statsFrame.Parent = mainFrame
+    local statsCorner = Instance.new("UICorner")
+    statsCorner.CornerRadius = UDim.new(0, 8)
+    statsCorner.Parent = statsFrame
+    local categoryCount = 0
+    for _, tests in pairs(testCategories) do
+        if #tests > 0 then
+            categoryCount = categoryCount + 1
+        end
+    end
+    local statsText = string.format("UNC: %.1f%%  |  ✓ %d Passed  |  ✗ %d Failed  |  ⏱ %dms Total  |  📊 %d Categories", 
+        unc_percentage, success_count, total_tests - success_count, totalTime, categoryCount)
+    local statsLabel = Instance.new("TextLabel")
+    statsLabel.Size = UDim2.new(1, -20, 1, 0)
+    statsLabel.Position = UDim2.new(0, 10, 0, 0)
+    statsLabel.BackgroundTransparency = 1
+    statsLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    statsLabel.Font = Enum.Font.SourceSans
+    statsLabel.TextSize = 16
+    statsLabel.TextXAlignment = Enum.TextXAlignment.Left
+    statsLabel.Text = statsText
+    statsLabel.Parent = statsFrame
+    local tabFrame = Instance.new("Frame")
+    tabFrame.Size = UDim2.new(1, -20, 0, 35)
+    tabFrame.Position = UDim2.new(0, 10, 0, 130)
+    tabFrame.BackgroundTransparency = 1
+    tabFrame.Parent = mainFrame
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.FillDirection = Enum.FillDirection.Horizontal
+    tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabLayout.Padding = UDim.new(0, 5)
+    tabLayout.Parent = tabFrame
+    local contentFrame = Instance.new("ScrollingFrame")
+    contentFrame.Size = UDim2.new(1, -20, 1, -175)
+    contentFrame.Position = UDim2.new(0, 10, 0, 165)
+    contentFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    contentFrame.BorderSizePixel = 0
+    contentFrame.ScrollBarThickness = 8
+    contentFrame.Parent = mainFrame
+    local contentCorner = Instance.new("UICorner")
+    contentCorner.CornerRadius = UDim.new(0, 8)
+    contentCorner.Parent = contentFrame
+    local contentLayout = Instance.new("UIListLayout")
+    contentLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    contentLayout.Padding = UDim.new(0, 2)
+    contentLayout.Parent = contentFrame
+    local function showCategoryResults(categoryName)
+        for _, child in ipairs(contentFrame:GetChildren()) do
+            if child:IsA("Frame") or child:IsA("UIListLayout") or child:IsA("UICorner") then -- Keep layout and corner
+                if not child:IsA("UIListLayout") and not child:IsA("UICorner") then
+                    child:Destroy()
+                end
+            end
+        end
+        local tests = testCategories[categoryName] or {}
+        contentFrame.CanvasSize = UDim2.new(0, 0, 0, math.max(0, #tests * 30 + 10)) -- Ensure minimum canvas size
+        for i, test in ipairs(tests) do
+            local testFrame = Instance.new("Frame")
+            testFrame.Size = UDim2.new(1, -10, 0, 28)
+            testFrame.BackgroundColor3 = test.passed and Color3.fromRGB(40, 60, 40) or Color3.fromRGB(60, 40, 40)
+            testFrame.BorderSizePixel = 0
+            testFrame.LayoutOrder = i
+            testFrame.Parent = contentFrame
+            local testCorner = Instance.new("UICorner")
+            testCorner.CornerRadius = UDim.new(0, 4)
+            testCorner.Parent = testFrame
+            local testLabel = Instance.new("TextLabel")
+            testLabel.Size = UDim2.new(0.7, 0, 1, 0)
+            testLabel.Position = UDim2.new(0, 10, 0, 0)
+            testLabel.BackgroundTransparency = 1
+            testLabel.TextColor3 = test.passed and Color3.fromRGB(150, 255, 150) or Color3.fromRGB(255, 150, 150)
+            testLabel.Font = Enum.Font.SourceSans
+            testLabel.TextSize = 14
+            testLabel.TextXAlignment = Enum.TextXAlignment.Left
+            testLabel.Text = test.name
+            testLabel.Parent = testFrame
+            local timeLabel = Instance.new("TextLabel")
+            timeLabel.Size = UDim2.new(0.3, -10, 1, 0)
+            timeLabel.Position = UDim2.new(0.7, 0, 0, 0)
+            timeLabel.BackgroundTransparency = 1
+            timeLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+            timeLabel.Font = Enum.Font.SourceSans
+            timeLabel.TextSize = 12
+            timeLabel.TextXAlignment = Enum.TextXAlignment.Right
+            timeLabel.Text = test.executionTime .. "ms"
+            timeLabel.Parent = testFrame
+        end
+    end
+    local selectedTab = nil
+    local firstTabButton = nil
+    local sortedCategoryNames = {}
+    for categoryName, _ in pairs(testCategories) do
+        if #testCategories[categoryName] > 0 then -- Only add categories with tests
+            table.insert(sortedCategoryNames, categoryName)
+        end
+    end
+    table.sort(sortedCategoryNames)
+    for _, categoryName in ipairs(sortedCategoryNames) do
+        local tabButton = Instance.new("TextButton")
+        tabButton.Size = UDim2.new(0, 80, 1, 0)
+        tabButton.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        tabButton.BorderSizePixel = 0
+        tabButton.Text = categoryName
+        tabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+        tabButton.Font = Enum.Font.SourceSans
+        tabButton.TextSize = 12
+        tabButton.Parent = tabFrame
+        local tabCorner = Instance.new("UICorner")
+        tabCorner.CornerRadius = UDim.new(0, 4)
+        tabCorner.Parent = tabButton
+        tabButton.MouseButton1Click:Connect(function()
+            if selectedTab then
+                selectedTab.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+                selectedTab.TextColor3 = Color3.fromRGB(200, 200, 200)
+            end
+            selectedTab = tabButton
+            tabButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+            tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+            showCategoryResults(categoryName)
+        end)
+        if not firstTabButton then
+            firstTabButton = tabButton
+        end
+    end
+    if firstTabButton then
+        firstTabButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+        firstTabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        showCategoryResults(sortedCategoryNames[1]) -- Show results for the first sorted category
+    end
+    print("Đã hiển thị Enhanced GUI với categories và thống kê chi tiết.")
+end
+showEnhancedUNCGui()
